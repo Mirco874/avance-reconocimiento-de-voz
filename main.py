@@ -1,4 +1,4 @@
-import sys, threading
+import sys
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from PyQt5.QtGui import QPainter, QBrush, QPen
 from PyQt5.QtCore import Qt, QTimer, QObject, QThread, pyqtSignal
@@ -18,7 +18,7 @@ from keras.models import load_model
 import librosa
 import librosa.display 
 import librosa.feature 
-
+import threading
 
 #se encuentra a la escucha
 listen=False
@@ -28,8 +28,18 @@ labels=["Aula","Borrar","Cero","Cinco","Cuatro","Dos","Limpiar","Nueve","Ocho","
 numeros=["Cero","Uno","Dos","Tres","Cuatro","Cinco","Seis","Siete","Ocho","Nueve"]
 #modelo entrenado
 trained_model=load_model('my_sr_model.h5')
-#comando actual
+#comando actual 
+# ejemplo de comando =["quebec","limpiar","aula","10765",True]
+
 command=[]
+
+piso_actual=0;
+aulas_planta_baja=[324, 456, 678, 889]
+aulas_primer_piso=[1045, 2670, 3456, 4983, 5266]
+aulas_segundo_piso=[ 6982, 8450, 9123]
+aulas_tercer_piso=[10765, 12890, 13876, 1489, 15000]
+aula_actual=""
+ulitma_aula_visitada=""
 
 #funcion para actualizar el comando segun la palabra percibida.
 def updateCommand(word):
@@ -80,9 +90,16 @@ def extract_features_voice(voiceSignal,sr):
 
 # funcion para empezar a escuchar las palabras
 def press_on(key):
-    global listen
-    if key==Key.space:
-        listen=True
+	global listen
+	global command
+	if key==Key.space:
+		listen=True
+	if (key==Key.enter):
+		if(len(command)==4):
+			command.append(True)
+		elif(len(command)==5):
+			command[4]=True
+	
 
 # funcion para terminar de escuchar y procesar la entrada
 def press_off(key):
@@ -241,26 +258,26 @@ class Edificio(QMainWindow):
 
 		self.pisos = []
 		piso1 = Piso()
-		piso1.nuevaAula(Aula("0a", 0, 200, 200))
-		piso1.nuevaAula(Aula("0b", 200, 0, 200))
-		piso1.nuevaAula(Aula("0c", 600, 0, 200))
-		piso1.nuevaAula(Aula("0d", 800, 200, 200))
+		piso1.nuevaAula(Aula("324", 0, 200, 200))
+		piso1.nuevaAula(Aula("456", 200, 0, 200))
+		piso1.nuevaAula(Aula("678", 600, 0, 200))
+		piso1.nuevaAula(Aula("889", 800, 200, 200))
 		piso2 = Piso()
-		piso2.nuevaAula(Aula("1a", 0, 200, 200))
-		piso2.nuevaAula(Aula("1b", 200, 0, 200))
-		piso2.nuevaAula(Aula("1c", 400, 0, 200))
-		piso2.nuevaAula(Aula("1d", 600, 0, 200))
-		piso2.nuevaAula(Aula("1e", 800, 200, 200))
+		piso2.nuevaAula(Aula("1045", 0, 200, 200))
+		piso2.nuevaAula(Aula("2670", 200, 0, 200))
+		piso2.nuevaAula(Aula("3456", 400, 0, 200))
+		piso2.nuevaAula(Aula("4983", 600, 0, 200))
+		piso2.nuevaAula(Aula("5266", 800, 200, 200))
 		piso3 = Piso()
-		piso3.nuevaAula(Aula("2a", 0, 200, 200))
-		piso3.nuevaAula(Aula("2b", 400, 0, 200))
-		piso3.nuevaAula(Aula("2c", 800, 200, 200))
+		piso3.nuevaAula(Aula("6982", 0, 200, 200))
+		piso3.nuevaAula(Aula("8450", 400, 0, 200))
+		piso3.nuevaAula(Aula("9123", 800, 200, 200))
 		piso4 = Piso()
-		piso4.nuevaAula(Aula("3a", 0, 200, 200))
-		piso4.nuevaAula(Aula("3b", 200, 0, 200))
-		piso4.nuevaAula(Aula("3c", 400, 0, 200))
-		piso4.nuevaAula(Aula("3d", 600, 0, 200))
-		piso4.nuevaAula(Aula("3e", 800, 200, 200))
+		piso4.nuevaAula(Aula("10765", 0, 200, 200))
+		piso4.nuevaAula(Aula("12890", 200, 0, 200))
+		piso4.nuevaAula(Aula("13876", 400, 0, 200))
+		piso4.nuevaAula(Aula("1489", 600, 0, 200))
+		piso4.nuevaAula(Aula("15000", 800, 200, 200))
 
 		self.pisos.append(piso1)
 		self.pisos.append(piso2)
@@ -277,7 +294,7 @@ class Edificio(QMainWindow):
 		self.worker = Lector()
 		self.worker_thread = QThread()
 
-		self.worker.accion.connect(self.actualizar)
+		self.worker.accion.connect(self.moverse)
 
 		self.work_requested.connect(self.worker.leer)
 
@@ -357,6 +374,89 @@ class Edificio(QMainWindow):
 		self.x = 490
 		self.y = 560
 
+	def moverse(self,aula):
+		print(type(aula))
+		nueva_aula=int(aula)
+		global piso_actual
+		global aulas_planta_baja
+		global aulas_primer_piso
+		global aulas_segundo_piso
+		global aulas_tercer_piso
+		
+		if(piso_actual==0):
+			if(nueva_aula in aulas_planta_baja):
+				self.limpiar(str(aula))
+			elif(nueva_aula in aulas_primer_piso):
+				piso_actual=1
+				self.actualizar("subir")
+				self.limpiar(str(aula))
+			elif(nueva_aula in aulas_segundo_piso):
+				piso_actual=2
+				self.actualizar("subir")
+				self.actualizar("subir")
+				self.limpiar(str(aula))
+			elif(nueva_aula in aulas_tercer_piso):
+				piso_actual=3
+				self.actualizar("subir")
+				self.actualizar("subir")
+				self.actualizar("subir")
+				self.limpiar(str(aula))
+
+		if(piso_actual==1):
+			if(nueva_aula in aulas_planta_baja):
+				piso_actual=0
+				self.actualizar("bajar")
+				self.limpiar(str(aula))
+			elif(nueva_aula in aulas_primer_piso):
+				self.limpiar(str(aula))
+			elif(nueva_aula in aulas_segundo_piso):
+				piso_actual=2
+				self.actualizar("subir")
+				self.limpiar(str(aula))
+			elif(nueva_aula in aulas_tercer_piso):
+				piso_actual=3
+				self.actualizar("subir")
+				self.actualizar("subir")
+				self.limpiar(str(aula))
+		
+		if(piso_actual==2):
+			if(nueva_aula in aulas_planta_baja):
+				piso_actual=0
+				self.actualizar("bajar")
+				self.actualizar("bajar")
+				self.limpiar(str(aula))
+			elif(nueva_aula in aulas_primer_piso):
+				piso_actual=1
+				self.actualizar("bajar")
+				self.limpiar(str(aula))
+			elif(nueva_aula in aulas_segundo_piso):
+				self.limpiar(str(aula))
+			elif(nueva_aula in aulas_tercer_piso):
+				piso_actual=3
+				self.actualizar("subir")
+				self.limpiar(str(aula))
+
+		if(piso_actual==3):
+			if(nueva_aula in aulas_planta_baja):
+				piso_actual=0
+				self.actualizar("bajar")
+				self.actualizar("bajar")
+				self.actualizar("bajar")				
+				self.limpiar(str(aula))
+			elif(nueva_aula in aulas_primer_piso):
+				piso_actual=1
+				self.actualizar("bajar")
+				self.actualizar("bajar")
+				self.limpiar(str(aula))
+			elif(nueva_aula in aulas_segundo_piso):
+				piso_actual=2
+				self.actualizar("bajar")
+				self.limpiar(str(aula))
+			elif(nueva_aula in aulas_tercer_piso):
+				self.limpiar(str(aula))
+		print("nuevo piso: "+ str(piso_actual))
+
+
 	def actualizar(self, action):
 		if action == "subir":
 			if self.piso < len(self.pisos) -1:
@@ -388,16 +488,28 @@ class Lector(QObject):
 	@Slot()
 	def leer(self):
 		while True:
-			x = input()
-			self.accion.emit(x)
+			#si el nuevo piso es diferente del actual moverse y el aula 
+			global aula_actual
+			global ulitma_aula_visitada
+			global command
+
+			if(len(command)==5):
+				if(command[4]):
+					aula_actual=command[3]
+					command[4]=False
+					if(aula_actual!=ulitma_aula_visitada):
+						ulitma_aula_visitada=aula_actual
+						self.accion.emit(aula_actual)
 
 app = QtWidgets.QApplication(sys.argv)
-
 window = Edificio()
+
 
 # creacion del hilo para mostrar la grafica y escuchar los eventos de los botones
 with stream,Listener(on_press=press_on, on_release= press_off) as listener:
-    plt.show()  ####
-    window.show()
-    app.exec_()
-    listener.join()
+	##plt.show()  ####
+	#window.show()
+	window.show()
+	app.exec_()
+	##plt.show()
+	##listener.join()
