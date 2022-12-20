@@ -508,8 +508,6 @@ window = Edificio()
 # creacion del hilo para mostrar la grafica y escuchar los eventos de los botones
 with stream,Listener(on_press=press_on, on_release= press_off) as listener:
 	##plt.show()  ####
-	#window.show()
 	window.show()
 	app.exec_()
-	##plt.show()
-	##listener.join()
+	listener.join()
